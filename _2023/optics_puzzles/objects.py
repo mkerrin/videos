@@ -580,11 +580,33 @@ class AccelerationVector(Vector):
 class ChargeBasedVectorField(VectorField):
     default_color = BLUE
 
-    def __init__(self, *charges, **kwargs):
+    def __init__(
+            self,
+            *charges,
+            center=ORIGIN,
+            x_density=2.0,
+            y_density=2.0,
+            z_density=2.0,
+            width=14,
+            height=8,
+            depth=0,
+            **kwargs):
         self.charges = list(charges)
+
+        # Equivalent to get_sample_points(center, width, height, depth,
+        #     x_density, y_density, z_density
+        # )
+        spacings = 1.0 / np.array([x_density, y_density, z_density])
+        coords = ThreeDAxes(
+            x_range=(-width / 2, width / 2, spacings[0]),
+            y_range=(-height / 2, height / 2, spacings[1]),
+            z_range=(-depth / 2, depth / 2, spacings[2]),
+        )
         super().__init__(
             self.get_forces,
             color=kwargs.pop("color", self.default_color),
+            coordinate_system=coords,
+            density=1.0,
             **kwargs
         )
         self.add_updater(lambda m: m.update_vectors())
@@ -654,6 +676,13 @@ class GraphAsVectorField(VectorField):
         self.sample_xs = np.arange(axes.x_axis.x_min, axes.x_axis.x_max, 1.0 / x_density)
         self.axes = axes
 
+        x_d = 1.0 / x_density
+        coords = ThreeDAxes(
+            (axes.x_axis.x_min, axes.x_axis.x_max - x_d, x_d),
+            (0, 0, 1),
+            (0, 0, 1)
+        )
+
         def vector_func(points):
             output = graph_func(self.sample_xs)
             if isinstance(axes, ThreeDAxes):
@@ -666,6 +695,7 @@ class GraphAsVectorField(VectorField):
         super().__init__(
             func=vector_func,
             max_vect_len=max_vect_len,
+            coordinate_system=coords, density=1.0,
             **kwargs
         )
         always(self.update_vectors)
