@@ -167,30 +167,30 @@ class SnellsLaw(InteractiveScene):
             self.play(angle_tracker.animate.set_value(angle), run_time=5)
 
         # Tank analogy
-        tank = SVGMobject("tank")
-        tank.set_fill(WHITE)
-        tank.rotate(-16 * DEGREES)
-        tank.set_height(1)
-        tank.move_to(beam.pfp(0.25))
+        # tank = SVGMobject("tank")
+        # tank.set_fill(WHITE)
+        # tank.rotate(-16 * DEGREES)
+        # tank.set_height(1)
+        # tank.move_to(beam.pfp(0.25))
 
-        self.play(FadeOut(angle_labels))
-        self.frame.set_height(4)
-        self.play(
-            tank.animate.move_to(beam.pfp(0.49)).set_anim_args(rate_func=linear, run_time=6),
-            VFadeIn(tank),
-            self.frame.animate.set_height(4).set_anim_args(time_span=(4, 6))
-        )
-        self.play(
-            tank.animate.rotate(get_theta2() - get_theta1()).move_to(hit_point + 0.3 * UP + 0.1 * LEFT),
-            rate_func=linear,
-            run_time=1.5,
-        )
-        self.play(
-            tank.animate.move_to(beam.pfp(0.65)).set_anim_args(rate_func=linear, run_time=8),
-            VFadeOut(tank, time_span=(7, 8)),
-            self.frame.animate.set_height(8).set_anim_args(time_span=(6, 8))
-        )
-        self.wait()
+        # self.play(FadeOut(angle_labels))
+        # self.frame.set_height(4)
+        # self.play(
+        #     tank.animate.move_to(beam.pfp(0.49)).set_anim_args(rate_func=linear, run_time=6),
+        #     VFadeIn(tank),
+        #     self.frame.animate.set_height(4).set_anim_args(time_span=(4, 6))
+        # )
+        # self.play(
+        #     tank.animate.rotate(get_theta2() - get_theta1()).move_to(hit_point + 0.3 * UP + 0.1 * LEFT),
+        #     rate_func=linear,
+        #     run_time=1.5,
+        # )
+        # self.play(
+        #     tank.animate.move_to(beam.pfp(0.65)).set_anim_args(rate_func=linear, run_time=8),
+        #     VFadeOut(tank, time_span=(7, 8)),
+        #     self.frame.animate.set_height(8).set_anim_args(time_span=(6, 8))
+        # )
+        # self.wait()
 
         # Write Snell's law
         law = Tex(R"{\sin(\theta_1) \over v_1} = {\sin(\theta_2) \over v_2}", font_size=52)
