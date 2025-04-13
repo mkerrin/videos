@@ -713,7 +713,7 @@ class IntroduceEField(InteractiveScene):
         self.wait(5)
 
         # Set it oscillating
-        charge.init_clock()
+        charge.init_clock(ORIGIN)
         charge.ignore_last_motion()
         charge.add_updater(lambda m: m.move_to(
             0.25 * np.sin(0.5 * TAU * m.get_internal_time()) * UP
