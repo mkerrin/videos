@@ -173,28 +173,28 @@ class AddTwoSineWaves(InteractiveScene):
         )
         top_words.next_to(VGroup(wave1.labels, wave2.labels), LEFT, buff=2.0)
 
-        omega_locks = VGroup()
-        for wave in [wave1, wave2]:
-            lock = SVGMobject("lock")
-            lock.match_height(wave.labels[1])
-            lock.next_to(wave.labels[1], LEFT, SMALL_BUFF)
-            omega_locks.add(lock)
+        #omega_locks = VGroup()
+        #for wave in [wave1, wave2]:
+        #    lock = SVGMobject("lock")
+        #    lock.match_height(wave.labels[1])
+        #    lock.next_to(wave.labels[1], LEFT, SMALL_BUFF)
+        #    omega_locks.add(lock)
 
-        omega_locks.set_color(GOLD)
+        # omega_locks.set_color(GOLD)
 
-        top_arrows = VGroup(*(
-            Arrow(top_words.get_right(), lock.get_left())
-            for lock in omega_locks
-        ))
+        #top_arrows = VGroup(*(
+        #    Arrow(top_words.get_right(), lock.get_left())
+        #    for lock in omega_locks
+        #))
 
         self.play(
             frame.animate.set_x(-5),
             FadeIn(top_words, 0.5 * LEFT),
-            LaggedStartMap(ShowCreation, top_arrows),
+            # LaggedStartMap(ShowCreation, top_arrows),
             run_time=2,
         )
         self.play(
-            LaggedStartMap(FadeIn, omega_locks),
+            # LaggedStartMap(FadeIn, omega_locks),
             *self.get_wave_change_animations(wave1, "omega", PI),
             *self.get_wave_change_animations(wave2, "omega", PI),
             run_time=2
