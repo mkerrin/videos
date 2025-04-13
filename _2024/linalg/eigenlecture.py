@@ -253,8 +253,10 @@ def get_vector_field_and_stream_lines(
     line_opacity=1.0,
 ):
     # Vector field
+    # TODO problem: coordinate_system is 2d here but VectorField calculate
+    # vectors by 3d
     vector_field = VectorField(
-        func, axes,
+        func, coordinate_system,
         density=density,
         stroke_width=vector_stroke_width,
         stroke_opacity=vector_opacity,
@@ -262,7 +264,7 @@ def get_vector_field_and_stream_lines(
 
     # Streamlines
     stream_lines = StreamLines(
-        func, axes,
+        func, coordinate_system,
         density=sample_freq,
         n_samples_per_line=n_samples_per_line,
         solution_time=solution_time,
@@ -284,16 +286,26 @@ def get_vector_field_and_stream_lines(
 class VectorFieldSolution(InteractiveScene):
     def construct(self):
         # Add axes
-        mat = np.array([[1, 2], [3, 1]])
+        mat = np.array([
+            [1, 2, 0],
+            [3, 1, 0],
+            [0, 0, 1]
+        ])
         # mat = np.array([[2, 0], [0, -1]])
         axes = NumberPlane((-4, 4), (-2, 2), faded_line_ratio=1)
+        # TODO changes x_axes.data["point"] scaling it meaning the
+        # sample_coords and the sample_points in the vector field are
+        # different
         axes.set_height(FRAME_HEIGHT)
         axes.background_lines.set_stroke(BLUE, 1)
         axes.faded_lines.set_stroke(BLUE, 0.5, 0.5)
         axes.add_coordinate_labels(font_size=36)
 
         def func(v):
-            return 0.5 * np.dot(v, mat.T)
+            # array of 2d vectors because that is our
+            # coordinate_system and mat
+            output = 0.5 * np.dot(v, mat.T)
+            return output
 
         self.add(axes)
 
@@ -308,7 +320,9 @@ class VectorFieldSolution(InteractiveScene):
         # Show the flow
         config = dict()
         # config = dict(step_multiple=0.5, vector_stroke_width=8)
-        vector_field, animated_lines = get_vector_field_and_stream_lines(func, axes, **config)
+        vector_field, animated_lines = get_vector_field_and_stream_lines(
+            func, axes, **config
+        )
 
         self.add(vector_field, animated_lines)
         vector_field.set_stroke(opacity=1)
