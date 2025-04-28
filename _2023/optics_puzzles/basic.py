@@ -2,8 +2,8 @@ from manim_imports_ext import *
 from _2023.optics_puzzles.objects import *
 
 from scipy.integrate import solve_ivp
+from scipy.spatial import transform
 import mechanics
-import rk4
 
 
 class Shapes(InteractiveScene):
@@ -107,12 +107,7 @@ class RotationBasic(InteractiveScene):
             6, inertia1 + inertia2, initial_omega=np.array([0, TAU, 0])
         )
         def update_body(m: Mobject, dt: float):
-            if dt == 0:
-                return
-            body.state = rk4.rk4(
-                mechanics.dydt, body.tk, body.state, dt, body=body
-            )
-            body.tk += dt
+            state = body.step(dt)
             rotation = body.getRotation(body.state)
             m.apply_initial_points_function(
                 lambda points: points.dot(rotation.T),
@@ -129,7 +124,7 @@ class RotationBasic(InteractiveScene):
         self.add(tail2)
 
 
-class Gyro(InteractiveScene):
+class CylinderScene(InteractiveScene):
 
     def construct(self):
         axes = ThreeDAxes(
@@ -145,6 +140,56 @@ class Gyro(InteractiveScene):
             "z", axis=axes.get_z_axis(), edge=UP, direction=DR
         )
         self.add(axes, axes.get_axis_labels(), z_axis_label)
+        import pdb
+        pdb.set_trace()
+        self.frame.reorient(
+            -14,  # theta
+            70, # phi
+            0,  # gamma
+        ).move_to([-0.24, 0.12, 0.04])
+
+        shaft = Cylinder(height=3, radius=1, axis=OUT)
+        self.add(shaft)
+
+        # shaft.rotate(np.pi / 2, np.array([0, 1, 0]))
+
+        rot = transform.Rotation.from_rotvec(
+            np.pi / 2 * np.array([0, 1, 0])
+        ).as_matrix()
+        print(rot)
+        shaft.apply_points_function(
+            lambda points: np.dot(points, rot.T),
+        )
+
+        inertia = mechanics.ICylinder(1, 3, 1)
+        print(inertia)
+        i2 = rot.dot(inertia).dot(rot.T)
+        print(i2)
+
+
+class Pendulum(InteractiveScene):
+
+    def construct(self):
+        axes = ThreeDAxes(
+            x_range=(-4, 4),
+            y_range=(-2, 2),
+            z_range=(-2, 2),
+            #width=x_unit * (x_range[1] - x_range[0]),
+            #height=y_unit * (y_range[1] - y_range[0]),
+            #depth=z_unit * (z_range[1] - z_range[0]),
+        )
+        axes.add_coordinate_labels(font_size=36)
+        z_axis_label = axes.get_axis_label(
+            "z", axis=axes.get_z_axis(), edge=UP, direction=DR
+        )
+        self.add(axes, axes.get_axis_labels(), z_axis_label)
+        import pdb
+        pdb.set_trace()
+        self.frame.reorient(
+            -14,  # theta
+            70, # phi
+            0,  # gamma
+        ).move_to([-0.24, 0.12, 0.04])
 
         shaftH = 2.5
         shaftR = .1
@@ -165,11 +210,163 @@ class Gyro(InteractiveScene):
         # add gravity to rotor
         shaftM = 1
         rotorM = 2
-        cm = (shaftM * shaft.get_center() + rotorM * rotor.get_center()) / \
-            (shaftM + rotorM)
-        print(cm)
-        inertia = mechanics.ICyclinder(shaftM, shaftH, shaftR, cm) + \
-            mechanics.ICyclinder(rotorM, rotorH, rotorR, cm)
+
+        rot = transform.Rotation.from_rotvec(
+            np.pi / 2 * np.array([0, 1, 0])
+        ).as_matrix()
+        
+        bodyShaft = mechanics.Cylinder(
+            .1, shaft.height, shaft.radius,
+            rot=rot,
+            initial_position=shaft.get_center()
+        )
+        bodyRotor = mechanics.Cylinder(
+            .2, rotor.height, rotor.radius,
+            rot=rot,
+            initial_position=rotor.get_center()
+        )
+        print(bodyShaft.position, bodyRotor.position)
+        body = mechanics.Compond(
+            bodyShaft, bodyRotor,
+            initial_omega=np.array([0., 0., 0.]),
+            # initial_omega=np.array([6 * np.pi, 0., 0.]),
+        )
+        print(body.position)
+
+        weight = body.mass * np.array([0, 0, -9.81 / 4])
+
+        gyro.save_points()
+        def update_gyro(m: Mobject, dt: float):
+            if dt == 0:
+                return
+
+            state = body.step(dt, force=weight)
+
+            rotation = body.getRotation(body.state)
+            m.apply_initial_points_function(
+                lambda points: points.dot(rotation.T),
+                about_point=ORIGIN,
+            )
+        gyro.add_updater(update_gyro)
+
+        Larrow = Arrow(start=ORIGIN, end=body.getL(body.state), color=RED)
+        self.add(Larrow)
+        Oarrow = Arrow(start=ORIGIN, end=body.get_omega(), color=PURPLE)
+        self.add(Oarrow)
+
+        def update_Larrow(m: Mobject, dt: float):
+            if dt == 0:
+                return
+            L = body.getL(body.state)
+            Larrow.set_points_by_ends(ORIGIN, L)
+        Larrow.add_updater(update_Larrow)
+        def update_Oarrow(m: Mobject, dt: float):
+            if dt == 0:
+                return
+            omega = body.get_omega()
+            Oarrow.set_points_by_ends(ORIGIN, omega)
+        Oarrow.add_updater(update_Oarrow)
+
+        
+class Gyro(InteractiveScene):
+
+    def construct(self):
+        axes = ThreeDAxes(
+            x_range=(-4, 4),
+            y_range=(-2, 2),
+            z_range=(-2, 2),
+            #width=x_unit * (x_range[1] - x_range[0]),
+            #height=y_unit * (y_range[1] - y_range[0]),
+            #depth=z_unit * (z_range[1] - z_range[0]),
+        )
+        axes.add_coordinate_labels(font_size=36)
+        z_axis_label = axes.get_axis_label(
+            "z", axis=axes.get_z_axis(), edge=UP, direction=DR
+        )
+        self.add(axes, axes.get_axis_labels(), z_axis_label)
+        import pdb
+        pdb.set_trace()
+        self.frame.reorient(
+            -14,  # theta
+            70, # phi
+            0,  # gamma
+        ).move_to([-0.24, 0.12, 0.04])
+
+        shaftH = 2.5
+        shaftR = .1
+        shaft = Cylinder(height=shaftH, radius=shaftR, axis=RIGHT)
+        rotorH = .2
+        rotorR = 1
+        rotor = Cylinder(height=rotorH, radius=rotorR, axis=RIGHT)
+        rotorEnd = Disk3D(radius=rotorR, color=GREY)
+        rotorEnd.rotate(np.pi / 2, axis=UP)
+        rotorEnd.move_to([shaftH / 2, 0, 0])
+        rotorEnd2 = rotorEnd.copy()
+        rotorEnd2.move_to([shaftH / 2 + rotorH, 0, 0])
+        rotor.move_to(np.array([shaftH / 2 + rotorH / 2, 0, 0]))
+        gyro = Group(shaft, rotor, rotorEnd, rotorEnd2)
+        gyro.move_to([shaftH / 2 + gyro.get_center()[0], 0, 0])
+        self.add(gyro)
+
+        # add gravity to rotor
+        shaftM = 1
+        rotorM = 2
+
+        rot = transform.Rotation.from_rotvec(
+            np.pi / 2 * np.array([0, 1, 0])
+        ).as_matrix()
+        
+        bodyShaft = mechanics.Cylinder(
+            .1, shaft.height, shaft.radius,
+            rot=rot,
+            initial_position=shaft.get_center()
+        )
+        bodyRotor = mechanics.Cylinder(
+            .2, rotor.height, rotor.radius,
+            rot=rot,
+            initial_position=rotor.get_center()
+        )
+        print(bodyShaft.position, bodyRotor.position)
+        body = mechanics.Compond(
+            bodyShaft, bodyRotor,
+            initial_omega=np.array([0., 0., 0.]),
+            # initial_omega=np.array([6 * np.pi, 0., 0.]),
+        )
+        print(body.position)
+
+        weight = body.mass * np.array([0, 0, -9.81 / 4])
+
+        gyro.save_points()
+        def update_gyro(m: Mobject, dt: float):
+            if dt == 0:
+                return
+
+            state = body.step(dt, force=weight)
+
+            rotation = body.getRotation(body.state)
+            m.apply_initial_points_function(
+                lambda points: points.dot(rotation.T),
+                about_point=ORIGIN,
+            )
+        gyro.add_updater(update_gyro)
+
+        Larrow = Arrow(start=ORIGIN, end=body.getL(body.state), color=RED)
+        self.add(Larrow)
+        Oarrow = Arrow(start=ORIGIN, end=body.get_omega(), color=PURPLE)
+        self.add(Oarrow)
+
+        def update_Larrow(m: Mobject, dt: float):
+            if dt == 0:
+                return
+            L = body.getL(body.state)
+            Larrow.set_points_by_ends(ORIGIN, L)
+        Larrow.add_updater(update_Larrow)
+        def update_Oarrow(m: Mobject, dt: float):
+            if dt == 0:
+                return
+            omega = body.get_omega()
+            Oarrow.set_points_by_ends(ORIGIN, omega)
+        Oarrow.add_updater(update_Oarrow)
 
 
 class Rotation(InteractiveScene):
@@ -188,11 +385,11 @@ class Rotation(InteractiveScene):
             "z", axis=axes.get_z_axis(), edge=UP, direction=DR
         )
         self.add(axes, axes.get_axis_labels(), z_axis_label)
-        #self.frame.reorient(
-        #    0,  # theta
-        #    45, # phi
-        #    0,  # gamma
-        #)
+        self.frame.reorient(
+            -20,  # theta
+            70, # phi
+            10,  # gamma
+        )
 
         top = Prism(
             width=1,
@@ -226,11 +423,6 @@ class Rotation(InteractiveScene):
             initial_omega=np.array([np.pi, 0.00002, 0]),
         )
 
-        Larrow = Arrow(start=cm, end=body.getL(body.state) - cm)
-        self.add(Larrow)
-        Oarrow = Arrow(start=cm, end=body.get_omega() - cm)
-        self.add(Oarrow)
-
         x_line = Line(cm, np.array([4.0, 0, 0]) + cm, color=RED)
         y_line = Line(cm, np.array([0, 4.0, 0]) + cm, color=GREEN)
         z_line = Line(cm, np.array([0, 0, 4.0]) + cm, color=BLUE)
@@ -249,18 +441,18 @@ class Rotation(InteractiveScene):
         # - translation and rotation need to be done relative to cm
 
         def update_handler(m: Mobject, dt: float):
-            if dt == 0:
-                return
-            body.state = rk4.rk4(
-                mechanics.dydt, body.tk, body.state, dt, body=body
-            )
-            body.tk += dt
+            state = body.step(dt)
             rotation = body.getRotation(body.state)
             m.apply_initial_points_function(
                 lambda points: points.dot(rotation.T),
                 about_point=cm,
             )
         handle.add_updater(update_handler)
+
+        Larrow = Arrow(start=cm, end=body.getL(body.state) - cm)
+        self.add(Larrow)
+        Oarrow = Arrow(start=cm, end=body.get_omega() - cm)
+        self.add(Oarrow)
 
         def update_Larrow(m: Mobject, dt: float):
             if dt == 0:

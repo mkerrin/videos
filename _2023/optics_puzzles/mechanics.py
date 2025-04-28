@@ -26,12 +26,24 @@ def IPrism(mass, w, h, d, point=ORIGIN):
     return parallel_axis(mass, inertia, point)
 
 
-def ICyclinder(mass, h, r, point=ORIGIN):
+def ICylinder(mass, h, r, point=ORIGIN):
     # https://en.wikipedia.org/wiki/List_of_moments_of_inertia#List_of_3D_inertia_tensors
     inertia = mass * np.array([
         [( 3 * r * r + h * h ) / 12, 0.,                       0.],
         [0,                          (3 * r * r + h * h) / 12, 0.],
         [0,                          0.,                       0.5 * r * r],
+    ])
+    return parallel_axis(mass, inertia, point)
+
+
+def ICylinder2(mass, h, r, point=ORIGIN):
+    # https://en.wikipedia.org/wiki/List_of_moments_of_inertia#List_of_3D_inertia_tensors
+    Iparallel = 0.5 * r * r
+    Iperp = 1 / 12 * (h * h + r * r)
+    inertia = mass * np.array([
+        [Iparallel, 0.,    0.],
+        [0,         Iperp, 0.],
+        [0,         0.,    Iperp],
     ])
     return parallel_axis(mass, inertia, point)
 
@@ -109,17 +121,36 @@ class Body:
         L = self.getL(self.state)
         return self.getOmega(rotation, L)
 
+    def step(self, dt: float, torque=ORIGIN, force=ORIGIN):
+        if dt == 0:
+            return
 
-class Cyclinder(Body):
+        state = rk4.rk4(
+            dydt, self.tk, self.state, dt, body=self,
+            torque=torque, force=force,
+        )
+        self.state = state
+        self.tk += dt
+
+        return state
+
+
+class Cylinder(Body):
 
     def __init__(self,
                  mass,
                  height,
                  radius,
+                 rot=np.identity(3),
                  axis=np.array([0, 0, 1]),
                  **kwargs):
-        inerita = ICyclinder(mass, height, radius) 
-        super().__init__(mass, interia, **kwargs)
+        inertia = ICylinder(mass, height, radius)
+        interia = rot.dot(inertia).dot(rot.T)
+        super().__init__(mass, inertia, **kwargs)
+
+
+def CylinderFromShape(mass, shape):
+    return Cylinder(mass, shape.height, shape.radius, shape.axis, **kwargs)
 
 
 class Prism(Body):
@@ -131,18 +162,35 @@ class Prism(Body):
                  depth,
                  **kwargs):
         inertia = IPrism(mass, width, height, depth)
-        super().__init__(self, mass, interia, **kwargs)
+        super().__init__(mass, inertia, **kwargs)
+
+
+def PrismFromShape(mass, shape, **kwargs):
+    return Prism(mass, shape.width, shape.height, shape.depth, **kwargs)
+
+
+class Sphere:
+
+    def __init__(self, mass, raidius, **kwargs):
+        inertia = ISphere(mass, radius)
+        super().__init__(mass, inertia, **kwargs)
+
+
+def SphereFromShape(mass, shape, **kwargs):
+    return Sphere(mass, shape.radius, **kwargs)
 
 
 class Compond(Body):
 
     def __init__(self, *bodies, **kwargs):
+        self.bodies = bodies
+
         mass = sum([b.mass for b in bodies])
         cm = sum([b.mass * b.position for b in bodies]) / mass
-        inerita = np.zeros((3, 3))
+        inertia = np.zeros((3, 3))
         for b in bodies:
-            interia += parallel_axis(b.mass, b.Ibody, cm)
-        super().__init__(mass, inertia, **kwargs)
+            inertia += parallel_axis(b.mass, b.Ibody, b.position)
+        super().__init__(mass, inertia, initial_position=cm, **kwargs)
 
 
 def star(a):
@@ -156,18 +204,24 @@ def star(a):
     ])
 
 
-def dydt(tk, state, body):
+def dydt(tk, state, body: Body, force=ORIGIN, **kwargs):
     xdot = body.getVelocity(state)
     xdot2 = np.zeros(3)
 
     rotation = body.getRotation(state)
     L = body.getL(state)
 
+    # We need to calculate the torque here as the state of rotation
+    # changes and we introduce an error in the calculation and it
+    # looks like the simulation gains energy
+    position = body.position.dot(rotation)
+    torque = np.cross(position, force)
+
     omega = body.getOmega(rotation, L)
     rdot = star(omega).dot(rotation)
 
     return np.concatenate((
-        xdot, xdot2, rdot.ravel(), xdot2
+        xdot, xdot2, rdot.ravel(), torque
     ))
 
 
