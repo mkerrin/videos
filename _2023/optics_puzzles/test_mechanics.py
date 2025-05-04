@@ -69,17 +69,17 @@ class TestMechanics(unittest.TestCase):
         # point at origin and center of mass to right.
         # TODO: axis=RIGHT for interia
         shaft = mechanics.Cylinder(
-            2,
+            1,
             2.5, .1,
-            initial_position=np.array([1.25, 0, 0])
+            initial_position=np.array([0, 0, 1.25])
         )
         rotor = mechanics.Cylinder(
             2,
             .2, 1,
-            initial_position=np.array([2.6, 0, 0])
+            initial_position=np.array([0, 0, 2.6])
         )
 
         gyro = mechanics.Compond(shaft, rotor)
 
-        assert gyro.mass == 4
-        np.testing.assert_almost_equal(gyro.position, [1.925, 0, 0])
+        assert gyro.mass == 3
+        np.testing.assert_almost_equal(gyro.position, [0, 0, 2.15])

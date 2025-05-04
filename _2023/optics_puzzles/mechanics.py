@@ -74,16 +74,18 @@ class Body:
             self, mass, Ibody,
             initial_position=ORIGIN,
             initial_velocity=ORIGIN,
+            initial_rotation=np.identity(3),
             initial_omega=ORIGIN,
     ):
         self.mass = mass
-        self.Ibody = Ibody
+        self.Ibody = initial_rotation.dot(Ibody).dot(initial_rotation.T)
         self.Ibodyinv = np.linalg.inv(Ibody)
 
         self.position = initial_position
+        self.cm = initial_position
         self.velocity = initial_velocity
 
-        self.rotation = np.identity(3)
+        self.rotation = initial_rotation
         self.omega = initial_omega
         self.L = self.Ibody.dot(self.omega)
 
@@ -141,15 +143,13 @@ class Cylinder(Body):
                  mass,
                  height,
                  radius,
-                 rot=np.identity(3),
                  axis=np.array([0, 0, 1]),
                  **kwargs):
         inertia = ICylinder(mass, height, radius)
-        interia = rot.dot(inertia).dot(rot.T)
         super().__init__(mass, inertia, **kwargs)
 
 
-def CylinderFromShape(mass, shape):
+def CylinderFromShape(mass, shape, **kwargs):
     return Cylinder(mass, shape.height, shape.radius, shape.axis, **kwargs)
 
 
@@ -166,12 +166,17 @@ class Prism(Body):
 
 
 def PrismFromShape(mass, shape, **kwargs):
-    return Prism(mass, shape.width, shape.height, shape.depth, **kwargs)
+    # TODO get length from sketch method
+    bbox = shape.get_bounding_box()
+    width = bbox[:, 0][2] - bbox[:, 0][0]
+    height = bbox[:, 1][2] - bbox[:, 1][0]
+    depth = bbox[:, 2][2] - bbox[:, 2][0]
+    return Prism(mass, width, height, depth, **kwargs)
 
 
-class Sphere:
+class Sphere(Body):
 
-    def __init__(self, mass, raidius, **kwargs):
+    def __init__(self, mass, radius, **kwargs):
         inertia = ISphere(mass, radius)
         super().__init__(mass, inertia, **kwargs)
 
@@ -190,7 +195,15 @@ class Compond(Body):
         inertia = np.zeros((3, 3))
         for b in bodies:
             inertia += parallel_axis(b.mass, b.Ibody, b.position)
-        super().__init__(mass, inertia, initial_position=cm, **kwargs)
+
+        # About ORIGIN
+        # inertia = parallel_axis(mass, inertia, cm)
+
+        super().__init__(
+            mass, inertia,
+            initial_position=cm,
+            **kwargs
+        )
 
 
 def star(a):
@@ -216,6 +229,7 @@ def dydt(tk, state, body: Body, force=ORIGIN, **kwargs):
     # looks like the simulation gains energy
     position = body.position.dot(rotation)
     torque = np.cross(position, force)
+    # print(torque)
 
     omega = body.getOmega(rotation, L)
     rdot = star(omega).dot(rotation)
