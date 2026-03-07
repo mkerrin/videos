@@ -1,6 +1,8 @@
 import numpy as np
+import quaternion
 
 from scipy.integrate import solve_ivp
+from scipy.spatial.transform import Rotation
 import rk4
 
 ORIGIN = np.array([0., 0., 0.])
@@ -28,6 +30,7 @@ def IPrism(mass, w, h, d, point=ORIGIN):
 
 def ICylinder(mass, h, r, point=ORIGIN):
     # https://en.wikipedia.org/wiki/List_of_moments_of_inertia#List_of_3D_inertia_tensors
+    # z is parallel to cylinder
     inertia = mass * np.array([
         [( 3 * r * r + h * h ) / 12, 0.,                       0.],
         [0,                          (3 * r * r + h * h) / 12, 0.],
@@ -77,17 +80,23 @@ class Body:
             initial_rotation=np.identity(3),
             initial_omega=ORIGIN,
     ):
+        # constants
         self.mass = mass
         self.Ibody = initial_rotation.dot(Ibody).dot(initial_rotation.T)
         self.Ibodyinv = np.linalg.inv(Ibody)
 
+        # state variables
         self.position = initial_position
-        self.cm = initial_position
-        self.velocity = initial_velocity
+        self.velocity = initial_velocity  # momentum
 
+        q = Rotation.from_matrix(initial_rotation).as_quat(scalar_first=True)
+        self.q = np.quaternion(*q)
+        self.L = self.Ibody.dot(initial_omega)
+
+        # calculated quantities
+        self.cm = initial_position
         self.rotation = initial_rotation
         self.omega = initial_omega
-        self.L = self.Ibody.dot(self.omega)
 
         # erh
         self.tk = 0
@@ -99,7 +108,8 @@ class Body:
             self.position.tolist() +  # 3
             self.velocity.tolist() +  # 3
             self.rotation.ravel().tolist() +  # 9
-            self.L.tolist()  # 3
+            self.L.tolist() +  # 3
+            [self.q.w, self.q.x, self.q.y, self.q.z]  # 4
         )
 
     def getPosition(self, state):
@@ -123,14 +133,26 @@ class Body:
         L = self.getL(self.state)
         return self.getOmega(rotation, L)
 
-    def step(self, dt: float, torque=ORIGIN, force=ORIGIN):
+    def reorient(self, points):
+        r = self.rotation
+        return points.dot(r.T)
+
+    def step(self, dt: float, torque=ORIGIN, force=ORIGIN, **kwargs):
         if dt == 0:
-            return
+            return self.getState()
 
         state = rk4.rk4(
             dydt, self.tk, self.state, dt, body=self,
-            torque=torque, force=force,
+            torque=torque, force=force, **kwargs
         )
+        self.position = state[0:3]
+        self.velocity = state[3:6]
+        self.rotation = state[6:15].reshape(3, 3)
+        self.L = state[15:18]
+        self.q = np.quaternion(*state[18:22])
+
+        self.omega = self.getOmega(self.rotation, self.L)
+
         self.state = state
         self.tk += dt
 
@@ -217,25 +239,32 @@ def star(a):
     ])
 
 
-def dydt(tk, state, body: Body, force=ORIGIN, **kwargs):
+def dydt(tk, state, body: Body, force=ORIGIN, torque=ORIGIN, **kwargs):
     xdot = body.getVelocity(state)
     xdot2 = np.zeros(3)
 
     rotation = body.getRotation(state)
     L = body.getL(state)
 
+    q = np.quaternion(*state[18:22])
+
     # We need to calculate the torque here as the state of rotation
     # changes and we introduce an error in the calculation and it
     # looks like the simulation gains energy
-    position = body.position.dot(rotation)
+    position = body.cm.dot(rotation.T)
     torque = np.cross(position, force)
-    # print(torque)
+    #torque = np.cross(L, np.array([0, 0, -.2]))
+    #print(torque)
+    # print(body.cm, torque, force)
 
     omega = body.getOmega(rotation, L)
     rdot = star(omega).dot(rotation)
 
+    oq = np.quaternion(0, *omega)
+    qdot = 0.5 * oq * q
+
     return np.concatenate((
-        xdot, xdot2, rdot.ravel(), torque
+        xdot, xdot2, rdot.ravel(), torque, [q.w, q.x, q.y, q.z]
     ))
 
 
