@@ -388,6 +388,27 @@ class TwistedRibbon(ParametricSurface):
 # For fields
 
 
+def getFieldCoords(
+        center=ORIGIN,
+        x_density=2.0,
+        y_density=2.0,
+        z_density=2.0,
+        width=14,
+        height=8,
+        depth=0,
+):
+    # Equivalent to get_sample_points(center, width, height, depth,
+    #     x_density, y_density, z_density
+    # )
+    spacings = 1.0 / np.array([x_density, y_density, z_density])
+    coords = ThreeDAxes(
+        x_range=(-width / 2, width / 2, spacings[0]),
+        y_range=(-height / 2, height / 2, spacings[1]),
+        z_range=(-depth / 2, depth / 2, spacings[2]),
+    )
+    return coords
+
+
 class ChargedParticle(Group):
     def __init__(
         self,

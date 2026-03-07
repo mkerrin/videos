@@ -438,10 +438,11 @@ class IntroduceEField(InteractiveScene):
             mags[past_times < 0] = 0
             return mags[:, np.newaxis] * DOWN
 
+        # TODO: add coordinate_system to this
+        coords = getFieldCoords(x_density=4.0, height=0)
         field = VectorField(
             field_func,
-            height=0,
-            x_density=4.0,
+            coordinate_system=coords, density=1.0,
             max_vect_len=1.0,
         )
         field.add_updater(lambda f: f.update_vectors())
@@ -966,10 +967,10 @@ class ShowTheEffectsOfOscillatingCharge(InteractiveScene):
     origin = None
 
     axes_config = dict(
-        axis_config=dict(stroke_opacity=0.7),
-        x_range=(-10, 10),
-        y_range=(-5, 5),
-        z_range=(-3, 3),
+        axis_config=dict(stroke_opacity=0.7, include_numbers=True,),
+        x_range=(-10, 10, 1),
+        y_range=(-5, 5, 1),
+        z_range=(-3, 3, 1),
     )
     particle_config = dict(
         track_position_history=True,
@@ -1256,10 +1257,10 @@ class ChargeOnZAxis(ShowTheEffectsOfOscillatingCharge):
     origin = ORIGIN
 
     axes_config = dict(
-        axis_config=dict(stroke_opacity=0.7),
-        x_range=(-8, 8),
-        y_range=(-6, 6),
-        z_range=(-3, 3),
+        axis_config=dict(stroke_opacity=0.7, include_numbers=True),
+        x_range=(-8, 8, 1),
+        y_range=(-6, 6, 1),
+        z_range=(-3, 3, 1),
     )
     particle_config = dict(
         show_sign=False,
