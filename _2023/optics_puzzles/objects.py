@@ -50,6 +50,8 @@ def get_axes_and_plane(
         height=y_unit * (y_range[1] - y_range[0]),
         depth=z_unit * (z_range[1] - z_range[0]),
     )
+    axes.add_coordinate_labels(font_size=36)
+
     axes.shift(origin_point - axes.get_origin())
     axes.set_opacity(axes_opacity)
     axes.set_flat_stroke(False)
@@ -97,13 +99,18 @@ def points_to_particle_info(particle, points, radius=None, c=2.0):
         radius = particle.get_radius()
 
     if particle.track_position_history:
+        # points is our sample of the field we want ot display.
+        # get distance from particle to all points in sample and divide by c
+        # to get the max time for each point we need to
         approx_delays = np.linalg.norm(points - particle.get_center(), axis=1) / c
+        # return the center of the particle at each time stamp
         centers = particle.get_past_position(approx_delays)
     else:
         centers = particle.get_center()
 
     diffs = points - centers
     norms = np.linalg.norm(diffs, axis=1)[:, np.newaxis]
+
     unit_diffs = np.zeros_like(diffs)
     np.true_divide(diffs, norms, out=unit_diffs, where=(norms > 0))
 
@@ -116,7 +123,9 @@ def points_to_particle_info(particle, points, radius=None, c=2.0):
 
 
 def coulomb_force(points, particle, radius=None):
-    unit_diffs, norms, adjusted_norms = points_to_particle_info(particle, points, radius)
+    unit_diffs, norms, adjusted_norms = points_to_particle_info(
+        particle, points, radius
+    )
     return particle.get_charge() * unit_diffs / adjusted_norms**2
 
 
@@ -127,10 +136,16 @@ def lorentz_force(
     c=2.0,
     epsilon0=0.025,
 ):
-    unit_diffs, norms, adjusted_norms = points_to_particle_info(particle, points, radius, c)
+    unit_diffs, norms, adjusted_norms = points_to_particle_info(
+        particle, points, radius, c
+    )
     delays = norms[:, 0] / c
 
+    # print(f"points: {len(points)}, particle: {particle.get_center()}. unit_diffs: {unit_diffs.shape}, norms: {norms.shape}, adjusted_norms: {adjusted_norms.shape}")
+
     acceleration = particle.get_past_acceleration(delays)
+
+    # dot product of acceleration along the unit diff
     dot_prods = (unit_diffs * acceleration).sum(1)[:, np.newaxis]
     a_perp = acceleration - dot_prods * unit_diffs
 
@@ -387,7 +402,6 @@ class TwistedRibbon(ParametricSurface):
 
 # For fields
 
-
 def getFieldCoords(
         center=ORIGIN,
         x_density=2.0,
@@ -539,6 +553,14 @@ class ChargedParticle(Group):
         super().scale(factor, *args, **kwargs)
         self.sphere.set_radius(factor * self.sphere.get_radius())
         return self
+
+    def get_velocity(self):
+        p0, p1, p2 = self.recent_positions
+        if np.isclose(p1, p2).all():
+            # Otherwise, starts and stops have artificially
+            # high velocity
+            return np.zeros(3)
+        return (p2 - p1) / self.time_step
 
     def get_acceleration(self):
         p0, p1, p2 = self.recent_positions

@@ -65,6 +65,9 @@ class TestParticles(unittest.TestCase):
         np.testing.assert_almost_equal(
             particle.get_acceleration(), np.array([0., 0., 0.])
         )
+        np.testing.assert_almost_equal(
+            particle.get_velocity(), np.array([1., 0, 0])
+        )
 
     def test_particle_acceleration_one(self):
         particle = ChargedParticle()
