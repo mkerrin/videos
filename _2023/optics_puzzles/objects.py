@@ -466,8 +466,8 @@ class ChargedParticle(Group):
 
     # Related to updaters
 
-    def update(self, dt: float = 0, recurse: bool = True):
-        super().update(dt, recurse)
+    def update(self, dt: float = 0, recurse: bool = True, frame_rate: float | None = None):
+        super().update(dt, recurse, frame_rate=frame_rate)
         # Do this instead of adding an updater, because
         # otherwise all animations require the
         # suspend_mobject_updating=false flag
